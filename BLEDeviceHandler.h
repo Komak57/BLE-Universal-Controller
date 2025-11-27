@@ -3,34 +3,35 @@
 #include "BLEDevice.h"
 
 // Base class for any BLE controller handled by BLEManager.
-class BLEDeviceHandler {
+class BLEDeviceHandler
+{
 public:
-  virtual ~BLEDeviceHandler() {}
+    virtual ~BLEDeviceHandler() {}
 
-  // Called during scan; return true if this advertisement belongs to this device
-  // NOTE: BLEAdvertisedDevice::getName() is non-const, so arg can't be const here.
-  virtual bool matchesAdvertisement(BLEAdvertisedDevice& dev) = 0;
+    // Called during scan; return true if this advertisement belongs to this device
+    // NOTE: BLEAdvertisedDevice::getName() is non-const, so arg can't be const here.
+    virtual bool matchesAdvertisement(BLEAdvertisedDevice &dev) = 0;
 
-  // UUIDs needed to discover the device's service/characteristics
-  virtual BLEUUID serviceUuid() const = 0;
-  virtual BLEUUID writeCharUuid() const = 0;
-  virtual BLEUUID notifyCharUuid() const = 0;
+    // UUIDs needed to discover the device's service/characteristics
+    virtual BLEUUID serviceUuid() const = 0;
+    virtual BLEUUID writeCharUuid() const = 0;
+    virtual BLEUUID notifyCharUuid() const = 0;
 
-  // Optional: CCCD UUID if special (otherwise 0x2902 is used)
-  virtual BLEUUID notifyDescriptorUuid() const { return BLEUUID((uint16_t)0x2902); }
+    // Optional: CCCD UUID if special (otherwise 0x2902 is used)
+    virtual BLEUUID notifyDescriptorUuid() const { return BLEUUID((uint16_t)0x2902); }
 
-  // Connection lifecycle
-  virtual void onConnected(BLEClient* client,
-                           BLERemoteService* service,
-                           BLERemoteCharacteristic* writeChr,
-                           BLERemoteCharacteristic* notifyChr) = 0;
-  virtual void onDisconnected() = 0;
+    // Connection lifecycle
+    virtual void onConnected(BLEClient *client,
+                             BLERemoteService *service,
+                             BLERemoteCharacteristic *writeChr,
+                             BLERemoteCharacteristic *notifyChr) = 0;
+    virtual void onDisconnected() = 0;
 
-  // Notification callback
-  virtual void onNotify(BLERemoteCharacteristic* chr, uint8_t* data, size_t len, bool isNotify) = 0;
+    // Notification callback
+    virtual void onNotify(BLERemoteCharacteristic *chr, uint8_t *data, size_t len, bool isNotify) = 0;
 
-  // Next-frame send mechanics
-  virtual bool hasPending() const = 0;  // true if a queued BLE write is waiting
-  virtual void trySendPending(BLERemoteCharacteristic* writeChr) = 0; // perform the write (one)
-  virtual void tick(uint32_t ms) = 0;
+    // Next-frame send mechanics
+    virtual bool hasPending() const = 0;                                // true if a queued BLE write is waiting
+    virtual void trySendPending(BLERemoteCharacteristic *writeChr) = 0; // perform the write (one)
+    virtual void tick(uint32_t ms) = 0;
 };
