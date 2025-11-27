@@ -464,7 +464,6 @@ void GearVR::emitUSB(const JoyData &now, const JoyData &prev)
 
 void GearVR::update(uint32_t tick)
 {
-    GVLOG("8\n");
     if (handshakeStage_ == 0)
     {
         handshakeTimer_ += tick;

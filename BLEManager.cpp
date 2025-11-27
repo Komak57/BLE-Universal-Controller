@@ -150,8 +150,6 @@ bool BLEManager::connectToServer()
 
 void BLEManager::update(uint32_t tick)
 {
-    BLELOG("Update...\n");
-    Serial.println("BLEManager Update");
     // connect step
     if (doConnect_)
     {
