@@ -84,8 +84,6 @@ bool GearVR::onConnected(BLEClient *client_)
             this->onNotify(chr, data, len, isNotify);
         });
     BLERemoteDescriptor *d = notify_->getDescriptor(notifyDescriptorUuid());
-    if (!d)
-        d = notify_->getDescriptor(BLEUUID((uint16_t)0x2902));
     if (d)
     {
         queueCmd(kSensor);
