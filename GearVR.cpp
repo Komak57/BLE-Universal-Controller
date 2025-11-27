@@ -93,6 +93,7 @@ bool GearVR::onConnected(BLEClient *client_)
     // queue Sensor first, not VR
     handshakeStage_ = 0; // new member to track progress
     handshakeTimer_ = 0;
+    return true;
 }
 
 void GearVR::onNotify(BLERemoteCharacteristic *chr, uint8_t *pData, size_t length, bool isNotify)
