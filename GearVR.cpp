@@ -48,34 +48,51 @@ BLEUUID GearVR::writeCharUuid() const { return sWrite; }
 BLEUUID GearVR::notifyCharUuid() const { return sNotify; }
 BLEUUID GearVR::notifyDescriptorUuid() const { return sCCCD; }
 
-void GearVR::onConnected(BLEClient *client,
-                         BLERemoteService *service,
-                         BLERemoteCharacteristic *writeChr,
-                         BLERemoteCharacteristic *notifyChr)
+bool GearVR::onConnected(BLEClient *client_)
 {
-    if (client_)
+    // Discover service/characteristics via handler UUIDs
+    BLERemoteService *svc = client_->getService(serviceUuid());
+    if (!svc)
     {
-        client_->setMTU(63);
-        delay(50);
+        GVLOG("Failed to find service\n");
+        client_->disconnect();
+        return false;
     }
+
+    write_ = svc->getCharacteristic(writeCharUuid());
+    notify_ = svc->getCharacteristic(notifyCharUuid());
+    if (!write_ || !write_->canWrite())
+    {
+        GVLOG("Invalid write characteristic\n");
+        client_->disconnect();
+        return false;
+    }
+    if (!notify_ || !notify_->canNotify())
+    {
+        GVLOG("Invalid notify characteristic\n");
+        client_->disconnect();
+        return false;
+    }
+    
+    client_->setMTU(63);
+    delay(50);
     GVLOG("GearVR connected (MTU now=%u)\n", client_->getMTU());
 
     // Enable CCCD first
-    if (notify_)
+    notify_->registerForNotify(
+        [this](BLERemoteCharacteristic* chr, uint8_t* data, size_t len, bool isNotify) {
+            this->onNotify(chr, data, len, isNotify);
+        });
+    BLERemoteDescriptor *d = notify_->getDescriptor(notifyDescriptorUuid());
+    if (!d)
+        d = notify_->getDescriptor(BLEUUID((uint16_t)0x2902));
+    if (d)
     {
-        BLERemoteDescriptor *d = notify_->getDescriptor(sCCCD);
-        if (!d)
-            d = notify_->getDescriptor(BLEUUID((uint16_t)0x2902));
-        if (d)
-        {
-            uint8_t enable[2] = {0x01, 0x00};
-            d->writeValue(enable, 2, true);
-            GVLOG("CCCD written: notifications enabled\n");
-        }
+        queueCmd(kSensor);
+        GVLOG("CCCD written: notifications enabled\n");
     }
 
     // queue Sensor first, not VR
-    queueCmd(kSensor);
     handshakeStage_ = 0; // new member to track progress
     handshakeTimer_ = 0;
 }
@@ -191,7 +208,6 @@ void GearVR::onDisconnected()
 
 void GearVR::queueCmd(const uint8_t cmd[2])
 {
-    GVLOG("4\n");
     pendingCmd_[0] = cmd[0];
     pendingCmd_[1] = cmd[1];
     pending_ = true; // will send on next manager update()
@@ -447,12 +463,12 @@ void GearVR::emitUSB(const JoyData &now, const JoyData &prev)
         ConsumerControl.release();
 }
 
-void GearVR::tick(uint32_t ms)
+void GearVR::update(uint32_t tick)
 {
     GVLOG("8\n");
     if (handshakeStage_ == 0)
     {
-        handshakeTimer_ += ms;
+        handshakeTimer_ += tick;
         if (handshakeStage_ == 0 && handshakeTimer_ >= 300)
         {
             // after 150 ms of Sensor request
@@ -464,11 +480,15 @@ void GearVR::tick(uint32_t ms)
     }
     //  // existing keepalive...
     //  if (!streaming_) {
-    //    keepaliveMs_ += ms;
+    //    keepaliveMs_ += tick;
     //    if (keepaliveMs_ >= 5000) {
     //      keepaliveMs_ = 0;
     //      queueCmd(kKeep);
     //      GVLOG("KA\n");
     //    }
     //  }
+    if (hasPending())
+    {
+        trySendPending(write_); // next-frame BLE write
+    }
 }

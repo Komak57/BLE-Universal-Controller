@@ -91,15 +91,6 @@ private:
     BLEManager *mgr_;
 };
 
-// notify trampoline
-void BLEManager::notifyTrampoline(BLERemoteCharacteristic *chr, uint8_t *data, size_t len, bool isNotify)
-{
-    if (!active_ || !active_->activeHandler_)
-        return;
-    // pass immediately to device handler (it may queue BLE replies for next frame)
-    active_->activeHandler_->onNotify(chr, data, len, isNotify);
-}
-
 BLEManager::BLEManager() {}
 
 void BLEManager::registerHandler(BLEDeviceHandler *handler)
@@ -151,57 +142,11 @@ bool BLEManager::connectToServer()
         BLELOG(" - Unable to connect\n");
         return false;
     }
-
-    // Discover service/characteristics via handler UUIDs
-    BLERemoteService *svc = client_->getService(activeHandler_->serviceUuid());
-    if (!svc)
-    {
-        BLELOG("Failed to find service\n");
-        client_->disconnect();
-        return false;
-    }
-
-    write_ = svc->getCharacteristic(activeHandler_->writeCharUuid());
-    notify_ = svc->getCharacteristic(activeHandler_->notifyCharUuid());
-    if (!write_ || !write_->canWrite())
-    {
-        BLELOG("Invalid write characteristic\n");
-        client_->disconnect();
-        return false;
-    }
-    if (!notify_ || !notify_->canNotify())
-    {
-        BLELOG("Invalid notify characteristic\n");
-        client_->disconnect();
-        return false;
-    }
-
-    // Subscribe
-    notify_->registerForNotify(&BLEManager::notifyTrampoline);
-    enableNotifications();
-    // Inform handler (it can queue initial command)
-    activeHandler_->onConnected(client_, svc, write_, notify_);
-    connected_ = true;
-    return true;
+    // Inform handler
+    connected_ = activeHandler_->onConnected(client_);
+    return connected_;
 }
 
-void BLEManager::enableNotifications()
-{
-    // Write CCCD = 0x0001 (notifications enable)
-    BLERemoteDescriptor *d = notify_->getDescriptor(activeHandler_->notifyDescriptorUuid());
-    if (!d)
-        d = notify_->getDescriptor(BLEUUID((uint16_t)0x2902));
-    if (d)
-    {
-        uint8_t enable[2] = {0x01, 0x00};
-        d->writeValue(enable, 2, true);
-        BLELOG("CCCD written: notifications enabled\n");
-    }
-    else
-    {
-        BLELOG("No CCCD found; relying on registerForNotify only\n");
-    }
-}
 
 void BLEManager::update(uint32_t tick)
 {
@@ -219,11 +164,7 @@ void BLEManager::update(uint32_t tick)
     // next-frame BLE writes
     if (connected_ && activeHandler_)
     {
-        activeHandler_->tick(tick); // allow device timers
-        if (activeHandler_->hasPending())
-        {
-            activeHandler_->trySendPending(write_); // next-frame BLE write
-        }
+        activeHandler_->update(tick); // allow device timers
     }
 
     // re-scan if not connected
@@ -233,6 +174,4 @@ void BLEManager::update(uint32_t tick)
         sys = SystemState::Scanning;
         BLEDevice::getScan()->start(0);
     }
-
-    (void)tick;
 }

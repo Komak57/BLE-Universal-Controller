@@ -21,17 +21,9 @@ public:
     virtual BLEUUID notifyDescriptorUuid() const { return BLEUUID((uint16_t)0x2902); }
 
     // Connection lifecycle
-    virtual void onConnected(BLEClient *client,
-                             BLERemoteService *service,
-                             BLERemoteCharacteristic *writeChr,
-                             BLERemoteCharacteristic *notifyChr) = 0;
+    virtual bool onConnected(BLEClient *client_) = 0;
     virtual void onDisconnected() = 0;
 
-    // Notification callback
-    virtual void onNotify(BLERemoteCharacteristic *chr, uint8_t *data, size_t len, bool isNotify) = 0;
-
     // Next-frame send mechanics
-    virtual bool hasPending() const = 0;                                // true if a queued BLE write is waiting
-    virtual void trySendPending(BLERemoteCharacteristic *writeChr) = 0; // perform the write (one)
-    virtual void tick(uint32_t ms) = 0;
+    virtual void update(uint32_t tick) = 0;
 };

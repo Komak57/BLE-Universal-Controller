@@ -45,16 +45,9 @@ public:
     BLEUUID notifyCharUuid() const override;
     BLEUUID notifyDescriptorUuid() const override;
 
-    void onConnected(BLEClient *client,
-                     BLERemoteService *service,
-                     BLERemoteCharacteristic *writeChr,
-                     BLERemoteCharacteristic *notifyChr) override;
+    bool onConnected(BLEClient *client_) override;
     void onDisconnected() override;
-
-    void onNotify(BLERemoteCharacteristic *chr, uint8_t *data, size_t len, bool isNotify) override;
-
-    bool hasPending() const override;
-    void trySendPending(BLERemoteCharacteristic *writeChr) override;
+    void update(uint32_t tick) override;
 
     // Public state for main/UI if needed
     JoyData joy, lastjoy;
@@ -101,10 +94,14 @@ private:
 
     void queueCmd(const uint8_t cmd[2]);
     void parseFullPacket(uint8_t *p, size_t len);
-    void tick(uint32_t ms) override;
 
     // (Optional) emit USB HID actions immediately here if you want device-owned mapping
     void emitUSB(const JoyData &now, const JoyData &prev);
+    
+    void onNotify(BLERemoteCharacteristic *chr, uint8_t *data, size_t len, bool isNotify);
+    bool hasPending() const;
+    void trySendPending(BLERemoteCharacteristic *writeChr);
+
 };
 
 #endif // GEARVR_H

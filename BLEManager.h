@@ -49,7 +49,6 @@ private:
     class ClientCallback;
 
     static BLEManager *active_; // for trampoline
-    static void notifyTrampoline(BLERemoteCharacteristic *chr, uint8_t *data, size_t len, bool isNotify);
 
     bool connectToServer();
     void enableNotifications();
