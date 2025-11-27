@@ -4,8 +4,6 @@
 #include "USBHIDKeyboard.h"
 #include "USBHIDConsumerControl.h"
 
-// Simple immediate USB mapping; adjust to taste
-
 extern USBHIDMouse Mouse;
 extern USBHIDKeyboard Keyboard;
 extern USBHIDConsumerControl ConsumerControl;
@@ -464,18 +462,19 @@ void GearVR::emitUSB(const JoyData &now, const JoyData &prev)
 
 void GearVR::update(uint32_t tick)
 {
-    if (handshakeStage_ == 0)
-    {
-        handshakeTimer_ += tick;
-        if (handshakeStage_ == 0 && handshakeTimer_ >= 300)
-        {
-            // after 150 ms of Sensor request
-            GVLOG("No stream → try VR mode\n");
-            queueCmd(kVr);
-            handshakeStage_ = 1;
-            handshakeTimer_ = 0;
-        }
-    }
+    // if (handshakeStage_ == 0)
+    // {
+    //     handshakeTimer_ += tick;
+    //     if (handshakeStage_ == 0 && handshakeTimer_ >= 300)
+    //     {
+    //         // after 150 ms of Sensor request
+    //         GVLOG("No stream → try VR mode\n");
+    //         queueCmd(kVr);
+    //         handshakeStage_ = 1;
+    //         handshakeTimer_ = 0;
+    //     }
+    // }
+    
     //  // existing keepalive...
     //  if (!streaming_) {
     //    keepaliveMs_ += tick;

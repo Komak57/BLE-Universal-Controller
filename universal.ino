@@ -19,9 +19,7 @@ USBHIDConsumerControl ConsumerControl;
 BLEManager bt;
 GearVR gear;
 
-SystemState sys = SystemState::Idle;
-
-uint32_t lastMs = 0, blink = 0;
+uint32_t lastMs = 0;
 
 void setup()
 {
@@ -55,27 +53,6 @@ void loop()
     lastMs = now;
 
     bt.update(tick);
-
-    // Blink while not connected
-    if (sys == SystemState::Connected)
-    {
-        neopixelWrite(RGB_BUILTIN, 0, RGB_BRIGHTNESS, 0);
-    }
-    else if (sys == SystemState::Scanning)
-    {
-        blink += tick;
-        if (blink >= 500)
-        {
-            blink = 0;
-            neopixelWrite(RGB_BUILTIN, 0, 0, RGB_BRIGHTNESS);
-            delay(15);
-            neopixelWrite(RGB_BUILTIN, 0, 0, 0);
-        }
-    }
-    else
-    {
-        neopixelWrite(RGB_BUILTIN, 0, 0, 0);
-    }
 
     delay(1);
 }

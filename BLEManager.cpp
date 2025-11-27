@@ -1,9 +1,6 @@
 #include "BLEManager.h"
 #include "esp_bt_main.h"
 #include "esp_gap_ble_api.h"
-#include "Helper.h"
-
-extern SystemState sys;
 
 // static
 BLEManager *BLEManager::active_ = nullptr;
@@ -57,7 +54,7 @@ public:
                 mgr_->foundDev_ = new BLEAdvertisedDevice(advertisedDevice);
                 mgr_->activeHandler_ = h;
                 mgr_->doConnect_ = true;
-                mgr_->doScan_ = true;
+                mgr_->doScan_ = false;
                 return;
             }
         }
@@ -73,18 +70,22 @@ public:
     explicit ClientCallback(BLEManager *mgr) : mgr_(mgr) {}
     void onConnect(BLEClient *pClient) override
     {
-        sys = SystemState::Connected;
         BLELOG("onConnect()\n");
         // user-level onConnect is owned by handler->onConnected after discovery
+        mgr_->connected_ = true;
+        mgr_->ledState = SystemState::Connected;
+
     }
     void onDisconnect(BLEClient *pClient) override
     {
         BLELOG("onDisconnect()\n");
-        mgr_->connected_ = false;
         if (mgr_->activeHandler_)
             mgr_->activeHandler_->onDisconnected();
+
+        mgr_->connected_ = false;
+        mgr_->doScan_ = true;
+        mgr_->ledState = SystemState::Idle;
         BLELOG("Idle...\n");
-        sys = SystemState::Idle;
     }
 
 private:
@@ -121,9 +122,54 @@ void BLEManager::init()
     scan->setInterval(1349);
     scan->setWindow(449);
     scan->setActiveScan(true);
-    scan->start(0, false);
-    sys = SystemState::Scanning;
-    BLELOG("Scanning...\n");
+
+    connected_ = false;
+    doScan_ = true;
+    active_->ledState = SystemState::Idle;
+
+    // Start LED Control Thread
+    xTaskCreatePinnedToCore(
+        ledTask,        // Task function
+        "LEDTask",      // Name
+        2048,           // Stack size
+        this,           // Parameter
+        1,              // Priority
+        &ledTaskHandle, // Handle
+        0               // Core 0 (recommended; BLE is on core 1)
+    );
+}
+
+void BLEManager::ledTask(void* param)
+{
+    BLELOG("LED Thread Started\n");
+    BLEManager* mgr = static_cast<BLEManager*>(param);
+    uint32_t last = millis(), blink = 0;
+    for(;;) {
+        uint32_t now = millis();
+        uint32_t tick = now - last;
+        last = now;
+        SystemState state = mgr->GetState();
+        switch (state) {
+            case SystemState::Connected:
+                neopixelWrite(RGB_BUILTIN, 0, RGB_BRIGHTNESS, 0);
+                break;
+            case SystemState::Scanning:
+                blink += tick;
+                if (blink >= 500)
+                {
+                    blink = 0;
+                    neopixelWrite(RGB_BUILTIN, 0, 0, RGB_BRIGHTNESS);
+                    vTaskDelay(pdMS_TO_TICKS(15));  // lightweight periodic execution
+                    neopixelWrite(RGB_BUILTIN, 0, 0, 0);
+                }
+                break;
+            default:
+                neopixelWrite(RGB_BUILTIN, 0, 0, 0);
+                break;
+        }
+        vTaskDelay(pdMS_TO_TICKS(10));  // lightweight periodic execution
+    }
+    BLELOG("LED Thread Ended\n");
 }
 
 bool BLEManager::connectToServer()
@@ -143,33 +189,33 @@ bool BLEManager::connectToServer()
         return false;
     }
     // Inform handler
-    connected_ = activeHandler_->onConnected(client_);
-    return connected_;
+    return activeHandler_->onConnected(client_);
 }
-
 
 void BLEManager::update(uint32_t tick)
 {
-    // connect step
-    if (doConnect_)
-    {
-        if (connectToServer())
-            BLELOG("Connected to server.\n");
-        else
-            BLELOG("Failed to connect.\n");
-        doConnect_ = false;
-    }
-    // next-frame BLE writes
-    if (connected_ && activeHandler_)
-    {
-        activeHandler_->update(tick); // allow device timers
-    }
-
-    // re-scan if not connected
-    if (!connected_ && doScan_)
-    {
-        BLELOG("Scanning...\n");
-        sys = SystemState::Scanning;
-        BLEDevice::getScan()->start(0);
+    if (connected_) {
+        // next-frame BLE writes
+        if (activeHandler_)
+            activeHandler_->update(tick); // allow device timers
+    } else {
+        // connect step
+        if (doConnect_)
+        {
+            if (connectToServer())
+                BLELOG("Connected to server.\n");
+            else
+                BLELOG("Failed to connect.\n");
+            doConnect_ = false;
+        }
+        
+        // re-scan if not connected
+        if (doScan_)
+        {
+            BLELOG("Scanning...\n");
+            active_->ledState = SystemState::Scanning;
+            // Non-blocking scan
+            BLEDevice::getScan()->start(0, false);
+        }
     }
 }

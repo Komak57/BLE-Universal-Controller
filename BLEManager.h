@@ -5,6 +5,7 @@
 #include <Arduino.h>
 #include "BLEDevice.h"
 #include "BLEDeviceHandler.h"
+#include "Helper.h"
 
 #ifndef BLE_DEBUG
 #define BLE_DEBUG 1
@@ -25,7 +26,7 @@ public:
 
     // Register up to N handlers; the first matching advertisement wins
     void registerHandler(BLEDeviceHandler *handler);
-
+    SystemState GetState() const { return ledState; }
 private:
     // scan/connect state
     bool doConnect_ = false;
@@ -52,6 +53,11 @@ private:
 
     bool connectToServer();
     void enableNotifications();
+
+    // Thread to handle LED state
+    TaskHandle_t ledTaskHandle = nullptr;
+    SystemState ledState;
+    static void ledTask(void* param);
 };
 
 #endif // BLE_MANAGER_H
