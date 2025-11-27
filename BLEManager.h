@@ -27,6 +27,7 @@ public:
     // Register up to N handlers; the first matching advertisement wins
     void registerHandler(BLEDeviceHandler *handler);
     SystemState GetState() const { return ledState; }
+    void Timeout() { ledState = SystemState::Idle; }
 private:
     // scan/connect state
     bool doConnect_ = false;

@@ -143,7 +143,7 @@ void BLEManager::ledTask(void* param)
 {
     BLELOG("LED Thread Started\n");
     BLEManager* mgr = static_cast<BLEManager*>(param);
-    uint32_t last = millis(), blink = 0;
+    uint32_t last = millis(), blink = 0, timeout = 0;
     for(;;) {
         uint32_t now = millis();
         uint32_t tick = now - last;
@@ -151,9 +151,16 @@ void BLEManager::ledTask(void* param)
         SystemState state = mgr->GetState();
         switch (state) {
             case SystemState::Connected:
+                timeout = 0;
                 neopixelWrite(RGB_BUILTIN, 0, RGB_BRIGHTNESS, 0);
                 break;
             case SystemState::Scanning:
+                timeout += tick;
+                // 5 minutes == 300000 ms
+                if (timeout >= 300000) {
+                    mgr->Timeout();
+                    break;
+                }
                 blink += tick;
                 if (blink >= 500)
                 {
@@ -164,6 +171,7 @@ void BLEManager::ledTask(void* param)
                 }
                 break;
             default:
+                timeout = 0;
                 neopixelWrite(RGB_BUILTIN, 0, 0, 0);
                 break;
         }
